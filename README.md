@@ -1,4 +1,4 @@
-# Pub-Sub Pattern Implementation with RabbitMQ by Jules
+# Pub-Sub Pattern Implementation with RabbitMQ
 
 ## Overview
 
