@@ -1,42 +1,31 @@
-const express = require('express');
-const app = express();
-const PORT = 3001;
 const amqp = require('amqplib');
 
-let rabbitMQConnection;
-const queueName = "MessageQueue";
-const messagesStorage = [];
+const exchangeName = "julestopic"; // listen to my topic "julestopic"
+const routingKey = 'info'; // routing key
 
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-
-app.get('/messages', (req, res) => {
+async function startSubscriber() {
   try {
-    return res.json({ messages: messagesStorage });
-  } catch (error) {
-    return res.status(500).json({
-      detail: error.message
-    });
-  }
-});
+    // Use localhost for local testing
+    const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
+    const connection = await amqp.connect(rabbitmqUrl);
+    const channel = await connection.createChannel();
+    await channel.assertExchange(exchangeName, 'topic', { durable: false });
 
-async function listenMessages() {
-  const channel = await rabbitMQConnection.createChannel();
-  await channel.assertQueue(queueName, { durable: false });
-  channel.consume(queueName, (message) => {
-    if (message !== null) {
-      const receivedJSON = JSON.parse(message.content.toString());
-      console.log(`Capturing an Event using RabbitMQ to:`, receivedJSON);
-      messagesStorage.push(receivedJSON);
-      channel.ack(message);
-    }
-  });
+    const { queue } = await channel.assertQueue('', { exclusive: true });
+    console.log(`Consumer waiting for messages in ${queue}. To exit press CTRL+C`);
+
+    channel.bindQueue(queue, exchangeName, routingKey);
+
+    channel.consume(queue, (message) => {
+      if (message !== null) {
+        const receivedJSON = JSON.parse(message.content.toString());
+        console.log(`Received message:`, receivedJSON);
+        channel.ack(message);
+      }
+    });
+  } catch (error) {
+    console.error("Error connecting to RabbitMQ:", error);
+  }
 }
 
-amqp.connect('amqp://localhost').then(async (connection) => {
-  rabbitMQConnection = connection;
-  listenMessages();
-  app.listen(PORT, () => {
-    console.log(` 😀 server on port ${PORT}  `);
-  });
-});
+startSubscriber();

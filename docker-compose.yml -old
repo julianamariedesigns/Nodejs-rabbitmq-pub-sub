@@ -1,0 +1,31 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    ports:
+      - "5672:5672" # RabbitMQ
+      - "15672:15672" # UI Admin
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  publisher:
+    build:
+      context: ./server-pub  # Path to the publisher app
+      dockerfile: Dockerfile  
+    ports:
+      - "3001:3000"  # Map container port 3000 to host port 3001
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672  # Connection string for RabbitMQ
+    depends_on:
+      - rabbitmq  #RabbitMQ starts before the publisher
+
+  consumer:
+    build:
+      context: ./server-sub  # Path to the consumer app
+      dockerfile: Dockerfile  
+    ports:
+      - "3002:3000"  # Map container port 3000 to host port 3002
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672  # Connection string for RabbitMQ
+    depends_on:
+      - rabbitmq  #  RabbitMQ starts before the consumer
